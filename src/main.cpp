@@ -15,6 +15,12 @@ Sensors::Readings latestReadings;
 unsigned long lastSensorSampleMs = 0;
 unsigned long lastBleNotifyMs = 0;
 
+void updateIndicators() {
+  const bool eStopPressed = digitalRead(Config::PIN_STOP_BUTTON_NC) == HIGH;
+  Control::updateLedIndicators(static_cast<uint8_t>(systemFsm.getState()),
+                               Control::estadoSistema, eStopPressed);
+}
+
 void applyTurnOnRequest() {
   Serial.println("[MAIN] Solicitud de encendido");
   latestReadings = Sensors::readAll();
@@ -79,11 +85,6 @@ void sampleSensorsAndUpdateFsm() {
   if (systemFsm.shouldForceRelayOff()) {
     Control::setRelay(false);
   }
-
-  // Actualizar indicadores LED
-  const bool eStopPressed = digitalRead(Config::PIN_STOP_BUTTON_NC) == HIGH;
-  Control::updateLedIndicators(static_cast<uint8_t>(systemFsm.getState()),
-                                Control::estadoSistema, eStopPressed);
 }
 
 void notifyBle() {
@@ -133,12 +134,15 @@ void setup() {
   if (systemFsm.shouldForceRelayOff()) {
     Control::setRelay(false);
   }
+
+  updateIndicators();
 }
 
 void loop() {
   handleManualAction();
   handleBleCommand();
   sampleSensorsAndUpdateFsm();
+  updateIndicators();
   notifyBle();
 
   delay(10);

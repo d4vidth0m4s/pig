@@ -41,7 +41,7 @@ constexpr float NTC_SERIES_RESISTANCE = 10000.0f;
 constexpr uint8_t NTC_AVERAGE_SAMPLES = 16;
 
 constexpr float ACS712_ZERO_OFFSET_V = ADC_REFERENCE_VOLTAGE * 0.5f;
-constexpr float ACS712_SENSITIVITY_V_PER_A = 0.185f;
+constexpr float ACS712_SENSITIVITY_V_PER_A = 0.066f;
 constexpr uint32_t ACS712_SAMPLE_WINDOW_MS = 120;
 
 constexpr uint32_t BUTTON_DEBOUNCE_MS = 80;

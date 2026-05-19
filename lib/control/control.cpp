@@ -31,6 +31,11 @@ int readRelayPinLevel() {
   return gpio_get_level(relayGpio);
 }
 
+int expectedRelayPinLevel(const bool estado) {
+  const uint8_t level = estado ? Config::RELAY_ACTIVE_LEVEL : Config::RELAY_INACTIVE_LEVEL;
+  return level == HIGH ? 1 : 0;
+}
+
 unsigned long lastLedUpdateMs = 0;
 bool ledBlinkState = false;
 
@@ -67,7 +72,6 @@ void begin() {
 }
 
 void setRelay(const bool estado) {
-  const bool previousState = estadoSistema;
   estadoSistema = estado;
   writeRelayPin(estado);
 
@@ -80,7 +84,7 @@ void setRelay(const bool estado) {
   Serial.print("=");
   Serial.println(pinLevel == 1 ? "HIGH" : "LOW");
 
-  if (pinLevel != (estadoSistema ? 1 : 0)) {
+  if (pinLevel != expectedRelayPinLevel(estadoSistema)) {
     Serial.println("[CONTROL] Advertencia: el nivel leido del pin no coincide con el estado solicitado");
   }
 }
