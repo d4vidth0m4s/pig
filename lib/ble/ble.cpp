@@ -19,6 +19,17 @@ BLECharacteristic* rxCharacteristic = nullptr;
 bool deviceConnected = false;
 BLEComms::Command pendingCommand = BLEComms::Command::None;
 
+constexpr float kCurrentOverloadHysteresisA = 0.24f;
+constexpr float kTemperatureOverloadHysteresisC = 10.0f;
+
+bool hasNumericField(const JsonDocument& doc, const char* key) {
+  return !doc[key].isNull();
+}
+
+float readFloatOrDefault(const JsonDocument& doc, const char* key, const float fallback) {
+  return hasNumericField(doc, key) ? doc[key].as<float>() : fallback;
+}
+
 String formatMacAddress(const uint8_t mac[6]) {
   char buffer[18];
   snprintf(buffer, sizeof(buffer), "%02X:%02X:%02X:%02X:%02X:%02X", mac[0],
@@ -79,8 +90,14 @@ class RxCallbacks : public BLECharacteristicCallbacks {
       const String comando = doc["comando"].as<String>();
 
       if (comando == "config") {
-        if (!doc["I_nominal"].is<float>() || !doc["I_umbral1"].is<float>() ||
-            !doc["I_umbral2"].is<float>() || !doc["T_max"].is<float>()) {
+        const bool hasCurrentFields = hasNumericField(doc, "I_nominal") &&
+                                      hasNumericField(doc, "I_umbral1") &&
+                                      hasNumericField(doc, "I_umbral2");
+        const bool hasTemperatureFields =
+            hasNumericField(doc, "T_umbral1") &&
+            (hasNumericField(doc, "T_umbral2") || hasNumericField(doc, "T_max"));
+
+        if (!hasCurrentFields || !hasTemperatureFields) {
           Serial.println("[BLE] Payload de config incompleto o invalido");
           return;
         }
@@ -89,9 +106,32 @@ class RxCallbacks : public BLECharacteristicCallbacks {
         newConfig.I_nominal = doc["I_nominal"].as<float>();
         newConfig.I_umbral1 = doc["I_umbral1"].as<float>();
         newConfig.I_umbral2 = doc["I_umbral2"].as<float>();
-        newConfig.T_max = doc["T_max"].as<float>();
+        newConfig.I_umbral1_des = readFloatOrDefault(
+            doc, "I_umbral1_des", newConfig.I_umbral1 - kCurrentOverloadHysteresisA);
+        newConfig.I_umbral2_arranque =
+            readFloatOrDefault(doc, "I_umbral2_arranque", Config::I_umbral2_arranque);
+        newConfig.T_umbral1 = doc["T_umbral1"].as<float>();
+        newConfig.T_umbral1_des = readFloatOrDefault(
+            doc, "T_umbral1_des", newConfig.T_umbral1 - kTemperatureOverloadHysteresisC);
+        newConfig.T_max = hasNumericField(doc, "T_max")
+                              ? doc["T_max"].as<float>()
+                              : doc["T_umbral2"].as<float>();
 
         Serial.println("[BLE] Comando recibido: config");
+        if (hasNumericField(doc, "T_nominal")) {
+          Serial.print("[BLE] T_nominal recibido (informativo): ");
+          Serial.println(doc["T_nominal"].as<float>(), 2);
+        }
+        if (hasNumericField(doc, "T_umbral2") && hasNumericField(doc, "T_max")) {
+          const float tUmbral2 = doc["T_umbral2"].as<float>();
+          const float tMax = doc["T_max"].as<float>();
+          if (fabsf(tUmbral2 - tMax) > 0.01f) {
+            Serial.print("[BLE] Aviso: T_umbral2=");
+            Serial.print(tUmbral2, 2);
+            Serial.print(" difiere de T_max=");
+            Serial.println(tMax, 2);
+          }
+        }
         ConfigStorage::saveConfig(newConfig);
         return;
       }
@@ -135,7 +175,7 @@ void begin() {
 
   rxCharacteristic = service->createCharacteristic(
       CHARACTERISTIC_UUID_RX,
-      BLECharacteristic::PROPERTY_WRITE 
+      BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR
     );
   rxCharacteristic->setCallbacks(new RxCallbacks());
 
@@ -144,9 +184,11 @@ void begin() {
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->setScanResponse(false);
   pAdvertising->setMinPreferred(0x0);
+  pAdvertising->setMaxPreferred(0x0);
   BLEDevice::startAdvertising();
 
   Serial.println("[BLE] Inicializado");
+  Serial.println("[BLE] ✅ Publicidad BLE iniciada - esperando cliente...");
 }
 
 bool isConnected() { return deviceConnected; }

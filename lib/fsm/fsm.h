@@ -21,6 +21,7 @@ class Machine {
   void begin();
   void update(const Sensors::Readings& readings, bool manualResetRequested);
   void clearProtection();
+  void setMotorActive(bool motorActive);
 
   State getState() const;
   bool isProtectionActive() const;
@@ -29,12 +30,21 @@ class Machine {
   const char* getStateName() const;
 
  private:
-  State evaluateOperationalState(const Sensors::Readings& readings) const;
+  State evaluateOperationalState(const Sensors::Readings& readings);
   bool isProtectionCondition(const Sensors::Readings& readings) const;
   uint8_t buildAlerts(const Sensors::Readings& readings) const;
+  bool isCurrentOverloadActive(const Sensors::Readings& readings) const;
+  bool isTemperatureOverloadActive(const Sensors::Readings& readings) const;
+  bool isRpmAlertActive(const Sensors::Readings& readings) const;
+  bool isStartupInhibitWindowActive() const;
+  float getCurrentProtectionThreshold() const;
 
   State state_ = State::NORMAL;
   uint8_t alerts_ = 0;
+  bool motorActive_ = false;
+  mutable bool currentOverloadLatched_ = false;
+  mutable bool temperatureOverloadLatched_ = false;
+  unsigned long motorStartMs_ = 0;
 };
 
 const char* toString(State state);

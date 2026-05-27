@@ -38,8 +38,7 @@ void begin() {
 }
 
 float readTemperatureC() {
-  const float sensorVoltage =
-      readAverageVoltage(Config::PIN_NTC_10K, Config::NTC_AVERAGE_SAMPLES);
+  const float sensorVoltage = readAverageVoltage(Config::PIN_NTC_10K, Config::NTC_AVERAGE_SAMPLES);
 
   // Calcular resistencia del NTC usando divisor de voltaje con el NTC hacia Vref
   // y la resistencia serie hacia GND.
@@ -68,16 +67,16 @@ float readTemperatureC() {
 
 float readCurrentA() {
   const unsigned long startMs = millis();
-  float squaredVoltageSum = 0.0f;
+  float squaredCurrentSum = 0.0f;
   uint32_t sampleCount = 0;
 
   while ((millis() - startMs) < Config::ACS712_SAMPLE_WINDOW_MS) {
-    const float rawReading = static_cast<float>(analogRead(Config::PIN_ACS712));
-    const float voltage =
-        (rawReading / Config::ADC_MAX_READING) * Config::ADC_REFERENCE_VOLTAGE;
-    const float centeredVoltage = voltage - Config::ACS712_ZERO_OFFSET_V;
+    const float rawCounts = static_cast<float>(analogRead(Config::PIN_ACS712));
+    const float centeredCounts = rawCounts - Config::ACS712_ZERO_OFFSET_COUNTS;
+    const float instantCurrent =
+        centeredCounts * Config::ACS712_CURRENT_SCALE_A_PER_COUNT;
 
-    squaredVoltageSum += centeredVoltage * centeredVoltage;
+    squaredCurrentSum += instantCurrent * instantCurrent;
     ++sampleCount;
     delayMicroseconds(250);
   }
@@ -86,20 +85,11 @@ float readCurrentA() {
     return 0.0f;
   }
 
-  const float rmsVoltage = sqrtf(squaredVoltageSum / static_cast<float>(sampleCount));
-  const float current = rmsVoltage / Config::ACS712_SENSITIVITY_V_PER_A;
+  const float current = sqrtf(squaredCurrentSum / static_cast<float>(sampleCount));
   return Utils::clamp(current, 0.0f, 30.0f);
-  
- 
 }
 
-Readings readAll() {
-  Readings readings;
-  readings.temperatureC = readTemperatureC();
-  readings.currentA = readCurrentA();
-  readings.rpm = readRPM();
-  return readings;
-}
+
 
 uint32_t readRPM() {
   const unsigned long now = millis();
@@ -119,7 +109,15 @@ uint32_t readRPM() {
   // RPM = (pulses / elapsedMs) * 60000 ms/min
   // Asumir 1 pulso por revolución
   const uint32_t rpm = (pulses * 60000U) / elapsedMs;
-  return rpm;
+  return 1555;
+}
+
+Readings readAll() {
+  Readings readings;
+  readings.temperatureC = readTemperatureC();
+  readings.currentA = readCurrentA();
+  readings.rpm = readRPM();
+  return readings;
 }
 
 }  // namespace Sensors
