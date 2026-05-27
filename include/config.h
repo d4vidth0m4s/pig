@@ -17,11 +17,11 @@ constexpr uint8_t PIN_ACS712 = 35;
 constexpr uint8_t PIN_SENSOR_RPM = 32;
 constexpr uint8_t PIN_START_BUTTON_NO = 27;
 constexpr uint8_t PIN_STOP_BUTTON_NC = 26;
-constexpr uint8_t PIN_BUZZER = 25;
 constexpr uint8_t BUZZER_PWM_CHANNEL = 0;
 constexpr uint8_t PIN_LED_GREEN = 22;
 constexpr uint8_t PIN_LED_RED = 19;
 
+constexpr uint8_t PIN_BUZZER = 25;
 constexpr uint8_t RELAY_ACTIVE_LEVEL = LOW;
 constexpr uint8_t RELAY_INACTIVE_LEVEL = HIGH;
 
@@ -34,10 +34,10 @@ constexpr uint32_t RPM_ALERT_THRESHOLD = 2000;
 constexpr float ADC_REFERENCE_VOLTAGE = 3.3f;
 constexpr float ADC_MAX_READING = 4095.0f;
 
-constexpr float NTC_NOMINAL_RESISTANCE = 10000.0f;
+constexpr float NTC_NOMINAL_RESISTANCE = 7740.0f; // measured
 constexpr float NTC_NOMINAL_TEMPERATURE = 25.0f;
 constexpr float NTC_BETA = 3950.0f;
-constexpr float NTC_SERIES_RESISTANCE = 10000.0f;
+constexpr float NTC_SERIES_RESISTANCE = 7290.0f; // measured
 constexpr uint8_t NTC_AVERAGE_SAMPLES = 16;
 
 constexpr float ACS712_ZERO_OFFSET_V = ADC_REFERENCE_VOLTAGE * 0.5f;

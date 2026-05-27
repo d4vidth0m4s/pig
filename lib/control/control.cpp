@@ -38,6 +38,7 @@ int expectedRelayPinLevel(const bool estado) {
 
 unsigned long lastLedUpdateMs = 0;
 bool ledBlinkState = false;
+bool emergencyStopLatched = false;
 
 }  // namespace
 
@@ -93,13 +94,32 @@ bool getRelayState() { return estadoSistema; }
 
 int getRelayPinLevel() { return readRelayPinLevel(); }
 
+bool isEmergencyStopLatched() { return emergencyStopLatched; }
+
 ManualAction consumeManualAction(const bool protectionActive) {
   const uint32_t now = millis();
 
   stopButtonDebouncer.update(isStopButtonOpen(), now);
   if (stopButtonDebouncer.rose()) {
-    Serial.println("[CONTROL] STOP NC abierto: apagando relay");
-    return ManualAction::TurnOff;
+    if (emergencyStopLatched) {
+      emergencyStopLatched = false;
+      Serial.println("[CONTROL] STOP NC: salida de parada de emergencia -> modo reposo");
+      return ManualAction::TurnOff;
+    }
+
+    if (protectionActive) {
+      Serial.println("[CONTROL] STOP NC: liberando estado PROTECCION -> modo reposo");
+      return ManualAction::ClearProtection;
+    }
+
+    if (estadoSistema) {
+      emergencyStopLatched = true;
+      Serial.println("[CONTROL] STOP NC: parada de emergencia activada");
+      return ManualAction::TurnOff;
+    }
+
+    Serial.println("[CONTROL] STOP NC abierto con motor detenido: sin accion");
+    return ManualAction::None;
   }
 
   startButtonDebouncer.update(isStartButtonPressed(), now);
@@ -110,9 +130,14 @@ ManualAction consumeManualAction(const bool protectionActive) {
 
   Serial.println("[CONTROL] START NO detectado");
 
+  if (emergencyStopLatched) {
+    Serial.println("[CONTROL] START ignorado: parada de emergencia activa");
+    return ManualAction::None;
+  }
+
   if (protectionActive) {
-    Serial.println("[CONTROL] START solicita reactivacion desde PROTECCION");
-    return ManualAction::TurnOn;
+    Serial.println("[CONTROL] START ignorado: salir de PROTECCION requiere boton NC");
+    return ManualAction::None;
   }
 
   Serial.print("[CONTROL] START conmuta relay a ");
@@ -120,9 +145,9 @@ ManualAction consumeManualAction(const bool protectionActive) {
   return estadoSistema ? ManualAction::TurnOff : ManualAction::TurnOn;
 }
 
-void updateLedIndicators(const uint8_t fsmState, const bool motorActive, const bool eStopPressed) {
-  // E-STOP presionado: rojo encendido, verde apagado
-  if (eStopPressed) {
+void updateLedIndicators(const uint8_t fsmState, const bool motorActive, const bool emergencyStopActive) {
+  // Parada de emergencia: rojo encendido fijo hasta un segundo toque del NC.
+  if (emergencyStopActive) {
     digitalWrite(Config::PIN_LED_RED, HIGH);
     digitalWrite(Config::PIN_LED_GREEN, LOW);
     return;

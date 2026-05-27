@@ -41,18 +41,18 @@ float readTemperatureC() {
   const float sensorVoltage =
       readAverageVoltage(Config::PIN_NTC_10K, Config::NTC_AVERAGE_SAMPLES);
 
-  // Calcular resistencia del NTC usando divisor de voltaje
-  // V_out = V_ref * R_ntc / (R_series + R_ntc)
-  // V_ref - V_out = V_ref * R_series / (R_series + R_ntc)
-  // R_ntc = V_out * R_series / (V_ref - V_out)
+  // Calcular resistencia del NTC usando divisor de voltaje con el NTC hacia Vref
+  // y la resistencia serie hacia GND.
+  // V_out = V_ref * R_series / (R_ntc + R_series)
+  // R_ntc = R_series * (V_ref - V_out) / V_out
 
   const float vref = Config::ADC_REFERENCE_VOLTAGE;
   if (sensorVoltage >= vref || sensorVoltage <= 0.0f) {
     return 25.0f;
   }
 
-  const float ntcResistance = sensorVoltage * Config::NTC_SERIES_RESISTANCE /
-                               (vref - sensorVoltage);
+  const float ntcResistance =
+      Config::NTC_SERIES_RESISTANCE * (vref - sensorVoltage) / sensorVoltage;
 
   // Ecuación de Steinhart-Hart simplificada (Beta equation)
   // 1/T = 1/T0 + (1/Beta) * ln(R/R0)

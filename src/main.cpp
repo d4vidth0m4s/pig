@@ -16,15 +16,28 @@ unsigned long lastSensorSampleMs = 0;
 unsigned long lastBleNotifyMs = 0;
 
 void updateIndicators() {
-  const bool eStopPressed = digitalRead(Config::PIN_STOP_BUTTON_NC) == HIGH;
   Control::updateLedIndicators(static_cast<uint8_t>(systemFsm.getState()),
-                               Control::estadoSistema, eStopPressed);
+                               Control::estadoSistema,
+                               Control::isEmergencyStopLatched());
 }
 
 void applyTurnOnRequest() {
   Serial.println("[MAIN] Solicitud de encendido");
+
+  if (Control::isEmergencyStopLatched()) {
+    Serial.println("[MAIN] Encendido bloqueado por parada de emergencia");
+    Control::setRelay(false);
+    return;
+  }
+
+  if (systemFsm.isProtectionActive()) {
+    Serial.println("[MAIN] Encendido bloqueado: salir de PROTECCION requiere boton NC");
+    Control::setRelay(false);
+    return;
+  }
+
   latestReadings = Sensors::readAll();
-  systemFsm.update(latestReadings, true);
+  systemFsm.update(latestReadings, false);
 
   if (!systemFsm.isProtectionActive()) {
     Control::setRelay(true);
@@ -48,6 +61,10 @@ void handleManualAction() {
       applyTurnOnRequest();
       break;
     case Control::ManualAction::TurnOff:
+      applyTurnOffRequest();
+      break;
+    case Control::ManualAction::ClearProtection:
+      systemFsm.clearProtection();
       applyTurnOffRequest();
       break;
     case Control::ManualAction::None:

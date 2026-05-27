@@ -49,6 +49,16 @@ void Machine::update(const Sensors::Readings& readings, const bool manualResetRe
   }
 }
 
+void Machine::clearProtection() {
+  if (state_ != State::PROTECCION) {
+    return;
+  }
+
+  Serial.println("[FSM] PROTECCION liberada manualmente por boton NC");
+  state_ = State::NORMAL;
+  alerts_ = 0;
+}
+
 State Machine::evaluateOperationalState(const Sensors::Readings& readings) const {
   const auto& config = ConfigStorage::currentConfig();
   if (readings.currentA > config.I_umbral1) {

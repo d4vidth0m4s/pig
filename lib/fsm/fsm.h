@@ -20,6 +20,7 @@ class Machine {
  public:
   void begin();
   void update(const Sensors::Readings& readings, bool manualResetRequested);
+  void clearProtection();
 
   State getState() const;
   bool isProtectionActive() const;
